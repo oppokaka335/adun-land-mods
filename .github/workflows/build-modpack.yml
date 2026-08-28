@@ -6,15 +6,15 @@ on:
       base_tag:
         description: Existing modpack release to clone
         required: true
-        default: v0.1.2
+        default: v0.1.3
       jars_tag:
         description: Staging release with extra jars
         required: true
-        default: v0.1.3-jars
+        default: v0.1.4-jars
       out_tag:
         description: New modpack tag
         required: true
-        default: v0.1.3
+        default: v0.1.4
 
 jobs:
   build:
@@ -33,16 +33,21 @@ jobs:
           mkdir -p pack
           unzip -q "$BASE_ZIP" -d pack
           gh release download "${{ inputs.jars_tag }}" --repo oppokaka335/adun-land-mods --dir jars
+          # Drop previous Forgematica / MaFgLib so version bumps do not duplicate.
+          find pack -maxdepth 2 -type f \( -iname 'Forgematica-*.jar' -o -iname 'MaFgLib-*.jar' \) -print -delete
           cp -f jars/*.jar pack/
           rm -f adun-land-mods.zip
           (cd pack && zip -qr ../adun-land-mods.zip .)
           ls -lah adun-land-mods.zip
           unzip -l adun-land-mods.zip | grep -E 'Forgematica|MaFgLib' || (echo missing jars && exit 1)
+          # Exactly one of each family
+          test "$(unzip -l adun-land-mods.zip | grep -ciE 'Forgematica-.*\.jar')" = "1"
+          test "$(unzip -l adun-land-mods.zip | grep -ciE 'MaFgLib-.*\.jar')" = "1"
           if gh release view "${{ inputs.out_tag }}" --repo oppokaka335/adun-land-mods >/dev/null 2>&1; then
             gh release delete "${{ inputs.out_tag }}" --repo oppokaka335/adun-land-mods --yes --cleanup-tag
           fi
           gh release create "${{ inputs.out_tag }}" adun-land-mods.zip \
             --repo oppokaka335/adun-land-mods \
             --title "Adun Land modpack ${{ inputs.out_tag }}" \
-            --notes "Adds Forgematica 0.1.13 + MaFgLib for Forge 1.20.1." \
+            --notes "Forgematica/MaFgLib CLIENT-only patch + MaFgLib 0.1.14. Schematic render defaults off (VS+Embeddium camera BE bug)." \
             --latest
